@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Url Ultra - Smart Link Shortener & OG Card Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #090b10; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+        .glass-card { background: #111520; border: 1px solid #1e2538; }
+        .tab-active { background: #2563eb; color: white; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="border-b border-slate-800 bg-[#0d1017] px-4 py-3 sticky top-0 z-50">
+        <div class="max-w-3xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white">U</div>
+                <span class="font-bold text-lg tracking-tight">Url Ultra</span>
+            </div>
+            <button onclick="loadHistory()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300">
+                <i class="fa-solid fa-clock-rotate-left mr-1"></i> My Links
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-3xl w-full mx-auto px-4 py-6 space-y-6">
+
+        <!-- Hero -->
+        <div class="text-center space-y-1">
+            <h1 class="text-2xl font-extrabold text-white">Create Viral Social Cards & Links</h1>
+            <p class="text-xs text-slate-400">Direct photo upload, Play Button toggle & instant link shortener</p>
+        </div>
+
+        <!-- Mode Tabs -->
+        <div class="grid grid-cols-2 gap-2 p-1 rounded-xl glass-card">
+            <button onclick="switchTab('short')" id="tab-short" class="tab-active py-2.5 rounded-lg text-xs font-semibold transition">
+                <i class="fa-solid fa-link mr-1"></i> Short Link
+            </button>
+            <button onclick="switchTab('card')" id="tab-card" class="py-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition">
+                <i class="fa-solid fa-image mr-1"></i> Image Card
+            </button>
+        </div>
+
+        <!-- Link Generator Form -->
+        <div id="generator-box" class="glass-card p-5 rounded-2xl space-y-4 shadow-xl">
+            <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Destination Target URL *</label>
+                <input type="url" id="targetUrl" placeholder="https://your-offer-link.com/..." class="w-full bg-[#090b10] border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500">
+            </div>
+
+            <!-- Extra Fields for Image Card -->
+            <div id="card-fields" class="hidden space-y-4 pt-3 border-t border-slate-800">
+                
+                <!-- Direct Photo Upload + Play Button Toggle -->
+                <div class="bg-[#090b10] border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold text-blue-400"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Upload Photo from Phone *</label>
+                        
+                        <!-- Play Button Toggle Switch -->
+                        <label class="inline-flex items-center cursor-pointer gap-2">
+                            <span class="text-xs font-medium text-slate-300">Play Button</span>
+                            <input type="checkbox" id="playToggle" onchange="processSelectedImage()" class="sr-only peer">
+                            <div class="relative w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+
+                    <input type="file" id="directPhotoInput" accept="image/*" onchange="handlePhotoSelect()" class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-semibold">
+                    
+                    <!-- Live Preview Canvas -->
+                    <div id="previewWrapper" class="hidden pt-2 flex flex-col items-center">
+                        <canvas id="previewCanvas" class="max-h-56 rounded-lg border border-slate-700"></canvas>
+                        <p class="text-[11px] text-slate-500 mt-1">Live Card Preview (Toggle Play Button above)</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Card Title (Optional)</label>
+                        <input type="text" id="cardTitle" placeholder="Watch Full Video" class="w-full bg-[#090b10] border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">Media Ending</label>
+                        <select id="linkEnding" class="w-full bg-[#090b10] border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                            <option value="">None (Recommended for X)</option>
+                            <option value=".mp4">.mp4 (Video)</option>
+                            <option value=".stream">.stream (Live)</option>
+                            <option value=".video">.video (HD)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Custom Alias (Optional)</label>
+                    <input type="text" id="customSlug" placeholder="viral-clip" class="w-full bg-[#090b10] border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white">
+                </div>
+                <div class="flex items-end">
+                    <button onclick="createLink()" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm transition shadow-lg shadow-blue-600/20">
+                        Generate Link
+                    </button>
+                </div>
+            </div>
+
+            <!-- Result Box -->
+            <div id="resultBox" class="hidden p-4 rounded-xl bg-emerald-950/40 border border-emerald-700/50 space-y-2">
+                <p class="text-xs text-emerald-400 font-semibold"><i class="fa-solid fa-circle-check mr-1"></i> Your Link is Ready!</p>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="generatedUrl" readonly class="w-full bg-[#090b10] border border-slate-700 rounded-lg px-3 py-2 text-xs text-emerald-300 font-mono">
+                    <button onclick="copyGenerated()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-semibold">Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Links History -->
+        <div class="glass-card p-5 rounded-2xl space-y-3">
+            <div class="flex justify-between items-center">
+                <h3 class="text-sm font-bold text-white">Recent Generated Links</h3>
+                <button onclick="loadHistory()" class="text-xs text-blue-400 hover:underline">Refresh</button>
+            </div>
+            <div id="linksList" class="space-y-2 text-xs text-slate-400">Loading links...</div>
+        </div>
+
+    </main>
+
+    <script>
+        const SUPABASE_URL = 'https://nccgkccjbrojavagmpbf.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_uVtTSdbdFwyYgCaER986oQ_E6WwbJuH';
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentMode = 'short';
+        let selectedImageObj = null;
+
+        function switchTab(mode) {
+            currentMode = mode;
+            ['short', 'card'].forEach(t => {
+                document.getElementById('tab-' + t).className = (t === mode) 
+                    ? 'tab-active py-2.5 rounded-lg text-xs font-semibold transition' 
+                    : 'py-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+            });
+            document.getElementById('card-fields').classList.toggle('hidden', mode !== 'card');
+        }
+
+        function handlePhotoSelect() {
+            const file = document.getElementById('directPhotoInput').files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    selectedImageObj = img;
+                    processSelectedImage();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function processSelectedImage() {
+            if (!selectedImageObj) return;
+            const canvas = document.getElementById('previewCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Resize for fast loading & crisp social preview (max width 1000px)
+            const maxW = 1000;
+            const scale = selectedImageObj.width > maxW ? maxW / selectedImageObj.width : 1;
+            canvas.width = selectedImageObj.width * scale;
+            canvas.height = selectedImageObj.height * scale;
+
+            ctx.drawImage(selectedImageObj, 0, 0, canvas.width, canvas.height);
+
+            // Draw Play Button ONLY if toggle is ON
+            if (document.getElementById('playToggle').checked) {
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+                const r = Math.min(canvas.width, canvas.height) * 0.12;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+                ctx.fill();
+                ctx.lineWidth = r * 0.08;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(cx - r * 0.3, cy - r * 0.45);
+                ctx.lineTo(cx + r * 0.5, cy);
+                ctx.lineTo(cx - r * 0.3, cy + r * 0.45);
+                ctx.closePath();
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+            }
+
+            document.getElementById('previewWrapper').classList.remove('hidden');
+        }
+
+        function randomSlug() {
+            return Math.random().toString(36).substring(2, 8);
+        }
+
+        async function createLink() {
+            const targetUrl = document.getElementById('targetUrl').value.trim();
+            if (!targetUrl) return alert('Please enter a Target URL!');
+
+            if (currentMode === 'card' && !selectedImageObj) {
+                return alert('Please select a photo from your phone first!');
+            }
+
+            const btn = document.getElementById('submitBtn');
+            btn.innerText = 'Uploading & Creating...';
+            btn.disabled = true;
+
+            let finalImageUrl = '';
+
+            try {
+                // Upload canvas image directly to Supabase Storage if Image Card mode
+                if (currentMode === 'card' && selectedImageObj) {
+                    const canvas = document.getElementById('previewCanvas');
+                    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+                    const fileName = `card_${Date.now()}_${randomSlug()}.jpg`;
+
+                    const { data: uploadData, error: uploadError } = await db.storage
+                        .from('thumbnails')
+                        .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+
+                    if (uploadError) {
+                        throw new Error('Storage upload failed: ' + uploadError.message);
+                    }
+
+                    const { data: publicUrlData } = db.storage.from('thumbnails').getPublicUrl(fileName);
+                    finalImageUrl = publicUrlData.publicUrl;
+                }
+
+                const slug = (document.getElementById('customSlug').value.trim() || randomSlug()).replace(/[^a-zA-Z0-9-_]/g, '');
+                const title = document.getElementById('cardTitle').value.trim();
+                const ending = document.getElementById('linkEnding').value;
+
+                const { data, error } = await db.from('links').insert([{
+                    slug,
+                    target_url: targetUrl,
+                    link_type: currentMode,
+                    image_url: finalImageUrl,
+                    title: title,
+                    description: '',
+                    ending: ending
+                }]).select();
+
+                if (error) throw error;
+
+                const finalLink = `${window.location.origin}/v/${slug}${ending}`;
+                document.getElementById('generatedUrl').value = finalLink;
+                document.getElementById('resultBox').classList.remove('hidden');
+                loadHistory();
+
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                btn.innerText = 'Generate Link';
+                btn.disabled = false;
+            }
+        }
+
+        function copyGenerated() {
+            const copyText = document.getElementById('generatedUrl');
+            copyText.select();
+            navigator.clipboard.writeText(copyText.value);
+            alert('Link Copied!');
+        }
+
+        async function loadHistory() {
+            const listEl = document.getElementById('linksList');
+            const { data, error } = await db.from('links').select('*').order('created_at', { ascending: false }).limit(10);
+            if (error || !data.length) {
+                listEl.innerHTML = '<p class="text-slate-500">No links created yet.</p>';
+                return;
+            }
+            listEl.innerHTML = data.map(item => {
+                const fullUrl = `${window.location.origin}/v/${item.slug}${item.ending || ''}`;
+                return `
+                <div class="p-3 rounded-xl bg-[#090b10] border border-slate-800 flex justify-between items-center gap-2">
+                    <div class="truncate">
+                        <p class="text-blue-400 font-mono font-semibold truncate">${fullUrl}</p>
+                        <p class="text-[11px] text-slate-500 truncate">${item.target_url}</p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="bg-slate-800 px-2 py-1 rounded text-[11px] text-slate-300">${item.clicks} clicks</span>
+                        <button onclick="navigator.clipboard.writeText('${fullUrl}'); alert('Copied!')" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-lg text-white">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        loadHistory();
+    </script>
+</body>
+  </html>
